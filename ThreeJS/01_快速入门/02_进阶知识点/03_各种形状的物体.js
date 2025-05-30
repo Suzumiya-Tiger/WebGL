@@ -3,24 +3,64 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const scene=new THREE.Scene()
 
-const geometry=new THREE.BoxGeometry(100,100,100)
+/**
+ * 球体
+ * 它是一个球面，由许多三角形组成
+ * 参数：
+ * 半径
+ * 分段数
+ * 分段数
+ * 分段数
+ * 分段数
+ */
+// const geometry=new THREE.SphereGeometry(100,32,32)
 
-const material=new THREE.MeshLambertMaterial({
+/**
+ * 圆柱体
+ * 参数：
+ * 半径
+ * 高度
+ * 分段数
+ * 分段数
+ */
+// const geometry=new THREE.CylinderGeometry(100,100,100,32,32)
+
+/**
+ * 矩形平面
+ * 
+ * 参数：
+ * 宽度
+ * 高度
+ * 宽度分段数
+ * 高度分段数
+ * 
+ */
+//  const geometry=new THREE.PlaneGeometry(100,100,32,32)
+
+
+/**
+ * 圆形平面
+ * 参数：
+ * 半径
+ * 分段数
+ */
+ const geometry=new THREE.CircleGeometry(100,32)
+
+
+const material=new THREE.MeshBasicMaterial({
   color:0x00ffff,
-  transparent:true,
-  opacity:0.5
+  wireframe:true
 })
-
 const mesh=new THREE.Mesh(geometry,material)
 
 scene.add(mesh)
 
-const light=new THREE.DirectionalLight(0xffffff)
+const light=new THREE.AmbientLight(0xffffff,1000)
 light.position.set(100,100,100)
 
 scene.add(light)
 
-const axesHelper=new THREE.AxesHelper(1000)
+const axesHelper=new THREE.AxesHelper(100)
 scene.add(axesHelper)
 
 const camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000)
@@ -43,7 +83,6 @@ requestAnimationFrame(render)
 render()
 
 document.body.appendChild(renderer.domElement) //将渲染器添加到body中
-console.log('查看当前屏幕设备像素比',window.devicePixelRatio);
 
 // onresize事件会在窗口被调整大小时发生
 window.onresize = function () {

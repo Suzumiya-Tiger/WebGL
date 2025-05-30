@@ -11,22 +11,30 @@ const material=new THREE.MeshLambertMaterial({
   opacity:0.5
 })
 
-const mesh=new THREE.Mesh(geometry,material)
+for (let i = 0; i < 10; i++) {
+  
+for(let j=0;j<10;j++){
 
-scene.add(mesh)
-
-const light=new THREE.DirectionalLight(0xffffff)
+  const mesh=new THREE.Mesh(geometry,material)
+  // 在XOZ平面分布
+mesh.position.set(i*200,0,j*200)
+  scene.add(mesh)
+}
+}
+// 参数分别代表光源颜色，光源强度，光源位置，光源方向
+const light=new THREE.DirectionalLight(0xffffff,500)
 light.position.set(100,100,100)
 
 scene.add(light)
 
-const axesHelper=new THREE.AxesHelper(1000)
+const axesHelper = new THREE.AxesHelper(3000)
 scene.add(axesHelper)
 
-const camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000)
+
+const camera=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,8000)
 
 camera.position.set(300,400,500)
-camera.lookAt(0,0,0)
+camera.lookAt(1000,0,1000)
 
 const renderer=new THREE.WebGLRenderer()
 
@@ -34,7 +42,8 @@ renderer.setSize(window.innerWidth,window.innerHeight)
 
 
 const controls=new OrbitControls(camera,renderer.domElement)
-
+controls.target.set(1000,0,1000)
+controls.update()
 function render(){
 requestAnimationFrame(render)
   renderer.render(scene,camera)
@@ -43,7 +52,6 @@ requestAnimationFrame(render)
 render()
 
 document.body.appendChild(renderer.domElement) //将渲染器添加到body中
-console.log('查看当前屏幕设备像素比',window.devicePixelRatio);
 
 // onresize事件会在窗口被调整大小时发生
 window.onresize = function () {

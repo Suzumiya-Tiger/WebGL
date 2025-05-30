@@ -45,6 +45,9 @@ render()
 document.body.appendChild(renderer.domElement) //将渲染器添加到body中
 console.log('查看当前屏幕设备像素比',window.devicePixelRatio);
 
+// 告诉three.js 我的屏幕的设备像素比
+renderer.setPixelRatio(window.devicePixelRatio)
+
 // onresize事件会在窗口被调整大小时发生
 window.onresize = function () {
   // 重置渲染器输出画布canvas尺寸
