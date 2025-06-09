@@ -20,6 +20,13 @@ scene.add(directionLight);
 const helper = new THREE.AxesHelper(100);
 scene.add(helper);
 
+// 添加地面辅助网格对象
+// 参数分别是网格的尺寸和网格的间隔，网格颜色和中线颜色
+const gridHelper=new THREE.GridHelper(600,50,0x00ffff,0x004444)
+scene.add(gridHelper)
+
+
+
 const width = window.innerWidth;
 const height = window.innerHeight;
 
