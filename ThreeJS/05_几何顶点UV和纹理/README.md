@@ -274,3 +274,209 @@ geometry.attributes.uv = new THREE.BufferAttribute(uvs, 2);
    - **大平面/地面**：将一小张贴图（如地砖、草地纹理）反复平铺，避免使用超大分辨率纹理，却还能获得高细节效果。
    - **墙体、顶棚**：类似地，重复图像可节约显存与带宽，同时保证纹理清晰。
    - **可配合自定义 UV**：若自定义模型的 UV 坐标范围不在 `[0,1]`，也能通过 `RepeatWrapping` 强行平铺多次。
+
+
+
+
+
+# UV动画的偏移offset
+
+```js
+import * as THREE from 'three'
+
+const geometry=new THREE.PlaneGeometry(200,20)
+
+// 纹理贴图加载器TextureLoader
+const textLoader=new THREE.TextureLoader()
+// .load()方法加载图像，返回一个纹理对象Texture
+const texture=textLoader.load('/转弯.png')
+
+const material=new THREE.MeshBasicMaterial({
+  // 设置贴图
+  map:texture,
+  // png贴图的透明部分如果需要忽略，则设置为true
+  transparent:true
+})
+
+const mesh=new THREE.Mesh(geometry,material)
+mesh.rotateX(-Math.PI/2)
+
+// 纹理对象的偏移属性,相当于在对应的平面内移动uv坐标
+texture.offset.x=0.5
+texture.offset.y=0.5
+
+// 纹理对象的缩放属性
+/* texture.repeat.x=2
+texture.repeat.y=2 */
+
+
+export {mesh,texture}
+
+```
+
+
+
+## 为什么说 `texture.offset` 就是“移动平面内的 UV 坐标”？
+
+在 Three.js 中，一个纹理最终被采样的过程，简化后可以看作是在“UV 平面”上按以下公式计算采样坐标：
+
+```
+sampleUV = uv * repeat + offset
+```
+
+- **uv**：几何体自带的原始 UV 坐标，通常在 `[0,1]` 范围内  
+- **repeat**：纹理平铺次数，控制 UV 被放大的倍数  
+- **offset**：在放大后的 UV 基础上再平移多少  
+
+也就是说，Three.js 在 GPU 中每个片元（像素）采样时，都会先把几何体给定的 `(u, v)` 乘以 `texture.repeat`，再加上 `texture.offset`，最终才去纹理图里取像素。
+
+---
+
+### 举例说明
+
+假设一个顶点的原始 UV 坐标是 `(u, v) = (0.2, 0.6)`，又设置了：
+
+```js
+texture.repeat.set(2, 2);        // 在 U/V 方向各重复两次
+texture.offset.set(0.5, 0.5);    // 在 U/V 方向各平移 0.5
+```
+
+那么实际采样用到的 UV 就是：
+
+```text
+sampleU = u * repeat.x + offset.x = 0.2 * 2 + 0.5 = 0.9
+sampleV = v * repeat.y + offset.y = 0.6 * 2 + 0.5 = 1.7
+```
+
+![image-20250609103240809](./README.assets/image-20250609103240809.png)
+
+**`sampleU = 0.9`**：落在第一个平铺副本的右侧稍偏位置
+
+**`sampleV = 1.7`**：落在第二个平铺副本（因为超过 1，需要看 `wrapT` 模式）
+
+整体效果相当于：
+
+1. 先把原始的 `[0,1]×[0,1]` UV 区域 **放大** 为 `[0,2]×[0,2]`；
+2. 再把整个放大的 UV 区域 **向右上** 平移 `(0.5,0.5)`；
+3. 最后对超出 `[0,1]` 的部分根据 `wrapS`/`wrapT`（默认为 `ClampToEdge`，或你设置的 `RepeatWrapping`）来决定如何取值。
+
+#### 视觉化理解
+
+- **没有偏移** 时，UV 从 `(0,0)` 到 `(1,1)` 正好贴满整个几何面。
+- **加上 offset** 后，UV 的原点被“向左下”或“向右上”移动，导致最终贴图在几何面上看起来像“滑动”了一段距离。
+
+|                    | UV 坐标（u，v） | 贴图在平面上的效果           |
+| ------------------ | --------------- | ---------------------------- |
+| **原始**           | 0→ 1            | 贴图正好铺满整个面           |
+| **offset.x = 0.5** | 0.5 → 1.5       | 贴图向右移动 50%（左边空出） |
+| **offset.y = 0.5** | 0.5 → 1.5       | 贴图向上移动 50%（下方空出） |
+
+**注意：** 如果你想让空出的部分也填充可见，就必须把 `wrapS` 或 `wrapT` 设为 `RepeatWrapping`，让超出 `[0,1]` 的区域循环平铺；否则默认会用边缘像素进行 “钳制” 拉伸。
+
+### 结论
+
+- `texture.offset` 并不是直接移动网格上的顶点或模型本身，而是通过平移 **UV 采样坐标系**，让贴图在模型表面“滑动”。
+
+- 内部原理就是：
+
+  ```js
+  
+  finalUV = originalUV × repeat + offset;
+  ```
+
+- 因此，设置 `offset` 等于直接在 UV 平面里“把贴图框”向四周平移，对应到模型上就像贴图在模型表面被滑动了一样。
+
+
+
+## RepeatWrapping的影响
+
+```js
+import * as THREE from 'three'
+
+const geometry=new THREE.PlaneGeometry(200,20)
+
+// 纹理贴图加载器TextureLoader
+const textLoader=new THREE.TextureLoader()
+// .load()方法加载图像，返回一个纹理对象Texture
+const texture=textLoader.load('/转弯.png')
+
+const material=new THREE.MeshBasicMaterial({
+  // 设置贴图
+  map:texture,
+  // png贴图的透明部分如果需要忽略，则设置为true
+  transparent:true
+})
+
+const mesh=new THREE.Mesh(geometry,material)
+mesh.rotateX(-Math.PI/2)
+
+// 纹理对象的偏移属性,相当于在对应的平面内移动uv坐标
+/* texture.offset.x=0.5
+texture.offset.y=0.5 */
+
+// 纹理对象的缩放属性
+texture.repeat.x=2
+texture.repeat.y=2
+
+// 纹理对象的重复模式属性
+texture.wrapS=THREE.RepeatWrapping
+texture.wrapT=THREE.RepeatWrapping
+
+export {mesh,texture}
+
+```
+
+当你在贴图上同时设置了
+
+```js
+texture.repeat.set(2, 2);
+texture.wrapS = THREE.RepeatWrapping;
+texture.wrapT = THREE.RepeatWrapping;
+```
+
+Three.js 在内部会这样计算每个片元（pixel）的采样坐标：
+
+```ini
+finalU = originalU * repeat.x
+finalV = originalV * repeat.y
+```
+
+—— 然后再根据 wrap 模式决定超出 `[0,1]` 的部分如何处理。
+
+### 为什么能看到 4 份贴图？
+
+1. **`repeat.set(2,2)`**
+   - 把原先顶点 UV 在 `[0→1]` 的范围，放大到 `[0→2]`；
+   - 也就是说，原先只贴一次的图片，现在在 U 方向上要贴两次，V 方向上也要贴两次；
+   - 整个平面上就会出现 2×2 = 4 份相同的图案。
+2. **`RepeatWrapping`**
+   - 由于 `finalU`／`finalV` 都超过了 1（最多到 2），GPU 会对超出 `[0,1]` 的部分做“取小数”操作（等同于 `fract()`），
+   - 这就相当于：当 U 在 1→2 之间时，贴图会从头又重来一遍；同理 V 方向也是。
+   - 最终在平面上看到整齐的 2×2 并排平铺。
+
+------
+
+### 为什么图案仍然 “拉伸” 变形？
+
+平铺次数和几何形状是两码事——**贴图被如何平铺，取决于 UV；贴图被如何拉伸／压缩取决于平面的长宽比（或 UV 的本身分布比例）。**
+
+- 你的几何体是 `PlaneGeometry(200, 20)`，宽：高 = 200：20 = 10：1。
+- 默认生成的 UV，会把几何体的宽度 200 映射到 U = 0→1，高度 20 映射到 V = 0→1。
+- **也就是说，一个完整的贴图本来会被强制压扁成 200×20 的比例**，才能完全覆盖这个 Plane——哪怕不平铺，它也会失真。
+
+当你 `repeat.set(2,2)` 并开启平铺后，**每一格小贴图**依旧要被强行压扁成 `(200/2) × (20/2)` = `100 × 10` 的比例，才能贴到平面上。
+
+- 本来一张正方形或接近正方形的图片，被挤成了宽 100 高 10，就产生了“拉伸”或“扁平化”的视觉效果。
+
+------
+
+### 小结
+
+- **4 份贴图**：来源于 `repeat.set(2,2)` + `RepeatWrapping`，在 U/V 两个方向上各平铺两次。
+- **依然拉伸**：因为贴图每一份都要被映射到 `(200/2)×(20/2)` 的物理尺寸上，几何体的宽高比决定了形状失真。
+
+要消除拉伸，你可以：
+
+- 使用长宽比与几何体接近的图片；
+- 或者给 UV 自定义分布，让每份小贴图的 UV 范围和几何尺寸比例一致。
+
